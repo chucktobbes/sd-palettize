@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 import os
 import requests
+import colorsys
 from io import BytesIO
 from itertools import product
 
@@ -123,6 +124,20 @@ def remove_background_processed(image, threshold):
     image = Image.composite(image, Image.new("RGBA", image.size, (255, 255, 255, 0)), mask)
     return image
 
+def desaturate_image(image, desaturation_value):
+    image = image.convert('RGBA')
+    pixels = image.load()
+    width, height = image.size
+    for y in range(height):
+        for x in range(width):
+            r, g, b, a = pixels[x, y]
+            if a != 0:
+                h, s, v = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
+                s = max(0, s - desaturation_value)
+                r, g, b = colorsys.hsv_to_rgb(h, s, v)
+                pixels[x, y] = (int(r * 255), int(g * 255), int(b * 255), a)
+    return image
+
 def palettize(input, colors, palImg, dithering, strength):
     img = cv2.cvtColor(input, cv2.COLOR_BGR2RGB)
     img = Image.fromarray(img).convert("RGB")
@@ -203,9 +218,14 @@ class Script(scripts.Script):
             scale = gr.Slider(minimum=2, maximum=32, step=1,
                               label='Downscale factor', value=8)
         with gr.Row():
+            desaturation = gr.Checkbox(label='Desaturation of the image', value=False)
+            desaturation_value = gr.Slider(minimum=0, maximum=1, step=0.05,
+                                label='desaturation value', value=0.1)
+        with gr.Row():
             transparent = gr.Checkbox(label='Make background transparent', value=False)
             threshold = gr.Slider(minimum=0, maximum=255, step=1,
                                 label='Threshold for background removal', value=10)
+      
         with gr.Row():
             dither = gr.Dropdown(choices=["Bayer 2x2", "Bayer 4x4", "Bayer 8x8"],
                                  label="Matrix Size", value="Bayer 8x8", type="index")
@@ -222,9 +242,9 @@ class Script(scripts.Script):
         with gr.Row():
             palette = gr.Image(label="Palette image")
 
-        return [downscale, original, upscale, kcentroid, scale, transparent, threshold, paletteDropdown, paletteURL, palette, clusters, dither, ditherStrength]
+        return [downscale, original, upscale, kcentroid, scale, transparent, threshold, desaturation, desaturation_value, paletteDropdown, paletteURL, palette, clusters, dither, ditherStrength]
 
-    def run(self, p, downscale, original, upscale, kcentroid, scale, transparent, threshold, paletteDropdown, paletteURL, palette, clusters, dither, ditherStrength):
+    def run(self, p, downscale, original, upscale, kcentroid, scale, transparent, threshold, desaturation, desaturation_value, paletteDropdown, paletteURL, palette, clusters, dither, ditherStrength):
 
         if ditherStrength > 0:
             print(
@@ -294,9 +314,12 @@ class Script(scripts.Script):
             processed.images[i] = Image.fromarray(img)
             images.save_image(Image.fromarray(tempImg), p.outpath_samples, "palettized",
                             processed.seed + i, processed.prompt, opts.samples_format, info=processed.info, p=p)
-            
+
             if transparent:
                 transimage = remove_background_processed(processed.images[i], threshold)
+                if desaturation:
+                    processed.images[i] = desaturate_image(processed.images[i], desaturation_value)
+                    transimage = desaturate_image(transimage, desaturation_value)
                 images.save_image(transimage, p.outpath_samples, "palettized_transparent", processed.seed + i, processed.prompt, opts.samples_format, info=processed.info, p=p)
                 transparent_images.append(transimage) 
                 if upscale:
@@ -304,7 +327,10 @@ class Script(scripts.Script):
                     downscaled_img = cv2.resize(np_img, (int(np_img.shape[1]/scale), int(np_img.shape[0]/scale)), interpolation=cv2.INTER_LINEAR)
                     downscaled_pil_img = Image.fromarray(downscaled_img)
                     images.save_image(downscaled_pil_img, p.outpath_samples, "palettized_transparent_downscaled", processed.seed + i, processed.prompt, opts.samples_format, info=processed.info, p=p)
-       
+            else:
+                if desaturation:
+                     processed.images[i] = desaturate_image(processed.images[i], desaturation_value)
+
             if grid:
                 processed.images[0] = images.image_grid(processed.images[1:generations], p.batch_size)
               
