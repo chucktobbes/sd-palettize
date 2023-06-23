@@ -4,7 +4,7 @@ import gradio as gr
 
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageEnhance
 import os
 import requests
 import colorsys
@@ -124,19 +124,25 @@ def remove_background_processed(image, threshold):
     image = Image.composite(image, Image.new("RGBA", image.size, (255, 255, 255, 0)), mask)
     return image
 
-def desaturate_image(image, desaturation_value):
-    image = image.convert('RGBA')
-    pixels = image.load()
-    width, height = image.size
-    for y in range(height):
-        for x in range(width):
-            r, g, b, a = pixels[x, y]
-            if a != 0:
-                h, s, v = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
-                s = max(0, s - desaturation_value)
-                r, g, b = colorsys.hsv_to_rgb(h, s, v)
-                pixels[x, y] = (int(r * 255), int(g * 255), int(b * 255), a)
-    return image
+def change_contrast(image: Image, contrast_value: float):
+    enhancer = ImageEnhance.Contrast(image)
+    enhanced_image = enhancer.enhance(contrast_value)
+    return enhanced_image
+
+def change_brightness(image: Image, brightness_value: float):
+    enhancer = ImageEnhance.Brightness(image)
+    enhanced_image = enhancer.enhance(brightness_value)
+    return enhanced_image
+
+def change_color(image: Image, color_value: float):
+    enhancer = ImageEnhance.Color(image)
+    enhanced_image = enhancer.enhance(color_value)
+    return enhanced_image
+
+def change_sharpness(image: Image, sharpness_value: float):
+    enhancer = ImageEnhance.Sharpness(image)
+    enhanced_image = enhancer.enhance(sharpness_value)
+    return enhanced_image
 
 def palettize(input, colors, palImg, dithering, strength):
     img = cv2.cvtColor(input, cv2.COLOR_BGR2RGB)
@@ -218,14 +224,25 @@ class Script(scripts.Script):
             scale = gr.Slider(minimum=2, maximum=32, step=1,
                               label='Downscale factor', value=8)
         with gr.Row():
-            desaturation = gr.Checkbox(label='Desaturation of the image', value=False)
-            desaturation_value = gr.Slider(minimum=0, maximum=1, step=0.05,
-                                label='desaturation value', value=0.1)
+            contrast = gr.Checkbox(label='Contrast of the image', value=False)
+            contrast_value = gr.Slider(minimum=0, maximum=1, step=0.05,
+                                label='contrast value', value=0.1)
+        with gr.Row():
+            brightness = gr.Checkbox(label='Brightness of the image', value=False)
+            brightness_value = gr.Slider(minimum=0, maximum=1, step=0.05,
+                                label='brightness value', value=0.1)
+        with gr.Row():
+            color = gr.Checkbox(label='Color of the image', value=False)
+            color_value = gr.Slider(minimum=0, maximum=1, step=0.05,
+                                label='color value', value=0.1)
+        with gr.Row():
+            sharpness = gr.Checkbox(label='Sharpness of the image', value=False)
+            sharpness_value = gr.Slider(minimum=0, maximum=1, step=0.05,
+                                label='sharpness value', value=0.1)       
         with gr.Row():
             transparent = gr.Checkbox(label='Make background transparent', value=False)
             threshold = gr.Slider(minimum=0, maximum=255, step=1,
                                 label='Threshold for background removal', value=10)
-      
         with gr.Row():
             dither = gr.Dropdown(choices=["Bayer 2x2", "Bayer 4x4", "Bayer 8x8"],
                                  label="Matrix Size", value="Bayer 8x8", type="index")
@@ -242,9 +259,9 @@ class Script(scripts.Script):
         with gr.Row():
             palette = gr.Image(label="Palette image")
 
-        return [downscale, original, upscale, kcentroid, scale, transparent, threshold, desaturation, desaturation_value, paletteDropdown, paletteURL, palette, clusters, dither, ditherStrength]
+        return [downscale, original, upscale, kcentroid, scale, transparent, threshold, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value,paletteDropdown, paletteURL, palette, clusters, dither, ditherStrength]
 
-    def run(self, p, downscale, original, upscale, kcentroid, scale, transparent, threshold, desaturation, desaturation_value, paletteDropdown, paletteURL, palette, clusters, dither, ditherStrength):
+    def run(self, p, downscale, original, upscale, kcentroid, scale, transparent, threshold, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value, paletteDropdown, paletteURL, palette, clusters, dither, ditherStrength):
 
         if ditherStrength > 0:
             print(
@@ -317,9 +334,19 @@ class Script(scripts.Script):
 
             if transparent:
                 transimage = remove_background_processed(processed.images[i], threshold)
-                if desaturation:
-                    processed.images[i] = desaturate_image(processed.images[i], desaturation_value)
-                    transimage = desaturate_image(transimage, desaturation_value)
+                if contrast:
+                    processed.images[i] = change_contrast(processed.images[i], contrast_value)
+                    transimage = change_contrast(transimage, contrast_value)
+                if brightness:
+                    processed.images[i] = change_brightness(processed.images[i], brightness_value)
+                    transimage = change_brightness(transimage, brightness_value)
+                if color:
+                    processed.images[i] = change_color(processed.images[i], color_value)
+                    transimage = change_color(transimage, color_value)
+                if sharpness:
+                    processed.images[i] = change_sharpness(processed.images[i], sharpness_value)
+                    transimage = change_sharpness(transimage, sharpness_value)
+
                 images.save_image(transimage, p.outpath_samples, "palettized_transparent", processed.seed + i, processed.prompt, opts.samples_format, info=processed.info, p=p)
                 transparent_images.append(transimage) 
                 if upscale:
@@ -328,8 +355,14 @@ class Script(scripts.Script):
                     downscaled_pil_img = Image.fromarray(downscaled_img)
                     images.save_image(downscaled_pil_img, p.outpath_samples, "palettized_transparent_downscaled", processed.seed + i, processed.prompt, opts.samples_format, info=processed.info, p=p)
             else:
-                if desaturation:
-                     processed.images[i] = desaturate_image(processed.images[i], desaturation_value)
+                if contrast:
+                    processed.images[i] = change_contrast(processed.images[i], contrast_value)
+                if brightness:
+                    processed.images[i] = change_brightness(processed.images[i], brightness_value)
+                if color:
+                    processed.images[i] = change_color(processed.images[i], color_value)
+                if sharpness:
+                    processed.images[i] = change_sharpness(processed.images[i], sharpness_value)
 
             if grid:
                 processed.images[0] = images.image_grid(processed.images[1:generations], p.batch_size)
