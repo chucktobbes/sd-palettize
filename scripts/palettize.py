@@ -209,7 +209,7 @@ class Script(scripts.Script):
         return True
 
     def ui(self, is_img2img):
-
+        limit = gr.Checkbox(label='Limit colors', value=True)
         clusters = gr.Slider(minimum=2, maximum=256, step=1,
                              label='Colors in palette', value=128)
         with gr.Row():
@@ -259,9 +259,9 @@ class Script(scripts.Script):
         with gr.Row():
             palette = gr.Image(label="Palette image")
 
-        return [downscale, original, upscale, kcentroid, scale, transparent, threshold, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value,paletteDropdown, paletteURL, palette, clusters, dither, ditherStrength]
+        return [downscale, original, upscale, kcentroid, scale, transparent, threshold, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value,paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength]
 
-    def run(self, p, downscale, original, upscale, kcentroid, scale, transparent, threshold, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value, paletteDropdown, paletteURL, palette, clusters, dither, ditherStrength):
+    def run(self, p, downscale, original, upscale, kcentroid, scale, transparent, threshold, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value, paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength):
 
         if ditherStrength > 0:
             print(
@@ -317,8 +317,10 @@ class Script(scripts.Script):
                 best_k = determine_best_k(palImg, 64)
                 palette = cv2.cvtColor(np.asarray(palImg.quantize(
                     colors=best_k, method=1, kmeans=best_k, dither=0).convert('RGB')), cv2.COLOR_RGB2BGR)
-
-            tempImg = palettize(img, clusters, palette, dither, ditherStrength)
+            if limit:
+                tempImg = palettize(img, clusters, palette, dither, ditherStrength)
+            else:
+                tempImg = img
 
             if downscale:
                 img = cv2.resize(tempImg, (int(
