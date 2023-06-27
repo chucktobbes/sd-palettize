@@ -210,8 +210,8 @@ class Script(scripts.Script):
 
     def ui(self, is_img2img):
 
-        clusters = gr.Slider(minimum=2, maximum=128, step=1,
-                             label='Colors in palette', value=24)
+        clusters = gr.Slider(minimum=2, maximum=256, step=1,
+                             label='Colors in palette', value=128)
         with gr.Row():
             downscale = gr.Checkbox(
                 label='Downscale before processing', value=True)
@@ -225,24 +225,24 @@ class Script(scripts.Script):
                               label='Downscale factor', value=8)
         with gr.Row():
             contrast = gr.Checkbox(label='Contrast of the image', value=False)
-            contrast_value = gr.Slider(minimum=0, maximum=1, step=0.05,
-                                label='contrast value', value=0.1)
+            contrast_value = gr.Slider(minimum=0, maximum=2, step=0.1,
+                                label='contrast value', value=1)
         with gr.Row():
             brightness = gr.Checkbox(label='Brightness of the image', value=False)
-            brightness_value = gr.Slider(minimum=0, maximum=1, step=0.05,
-                                label='brightness value', value=0.1)
+            brightness_value = gr.Slider(minimum=0, maximum=2, step=0.1,
+                                label='brightness value', value=1)
         with gr.Row():
             color = gr.Checkbox(label='Color of the image', value=False)
-            color_value = gr.Slider(minimum=0, maximum=1, step=0.05,
-                                label='color value', value=0.1)
+            color_value = gr.Slider(minimum=0, maximum=2, step=0.1,
+                                label='color value', value=1)
         with gr.Row():
             sharpness = gr.Checkbox(label='Sharpness of the image', value=False)
-            sharpness_value = gr.Slider(minimum=0, maximum=1, step=0.05,
-                                label='sharpness value', value=0.1)       
+            sharpness_value = gr.Slider(minimum=0, maximum=2, step=0.1,
+                                label='sharpness value', value=1)       
         with gr.Row():
             transparent = gr.Checkbox(label='Make background transparent', value=False)
             threshold = gr.Slider(minimum=0, maximum=255, step=1,
-                                label='Threshold for background removal', value=10)
+                                label='Threshold for background removal', value=100)
         with gr.Row():
             dither = gr.Dropdown(choices=["Bayer 2x2", "Bayer 4x4", "Bayer 8x8"],
                                  label="Matrix Size", value="Bayer 8x8", type="index")
