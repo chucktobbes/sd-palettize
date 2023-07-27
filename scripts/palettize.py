@@ -100,13 +100,13 @@ def remove_average_color(image: Image, threshold: int) -> Image:
     average_color = [int(c / 9) for c in average_color]
 
     # Create a mask to remove the average color
-    mask = Image.new("L", image.size, 0)
+    mask = Image.new("L", image.size, 255) # Change initial value of mask to 255
     for x in range(image.size[0]):
         for y in range(image.size[1]):
             pixel_color = image.getpixel((x, y))
             distance = sum([abs(pixel_color[i] - average_color[i]) for i in range(3)])
             if distance <= threshold:
-                mask.putpixel((x, y), 255)
+                mask.putpixel((x, y), 0) # Change value of mask to 0
 
     # Convert the image to RGBA mode to support transparency
     image = image.convert("RGBA")
@@ -115,6 +115,7 @@ def remove_average_color(image: Image, threshold: int) -> Image:
     image = Image.composite(image, Image.new("RGBA", image.size, (255, 255, 255, 0)), mask)
 
     return image
+
 
 
 # def remove_background_processed(image, threshold):
@@ -304,7 +305,7 @@ class Script(scripts.Script):
         with gr.Row():
             transparentColor = gr.Checkbox(label='Make background transparent with top left color', value=False)
             thresholdColor = gr.Slider(minimum=0, maximum=255, step=1,
-                                label='Threshold for postbackground removal', value=0)
+                                label='Threshold for postbackground removal', value=80)
         with gr.Row():
             dither = gr.Dropdown(choices=["Bayer 2x2", "Bayer 4x4", "Bayer 8x8"],
                                  label="Matrix Size", value="Bayer 8x8", type="index")
