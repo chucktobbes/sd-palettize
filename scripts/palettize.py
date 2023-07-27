@@ -87,25 +87,34 @@ def determine_best_k(image, max_k):
     return best_k
 
 # Runs cv2 k_means quantization on the provided image with "k" color indexes
-# def remove_background_tempImg(image, threshold):
-#     # Get the first pixel color
-#     first_pixel_color = image[0][0]
 
-#     # Create a mask to remove the background color
-#     mask = np.zeros(image.shape[:2], dtype=np.uint8)
-#     for x in range(image.shape[1]):
-#         for y in range(image.shape[0]):
-#             pixel_color = image[y][x]
-#             distance = sum([abs(int(pixel_color[i]) - int(first_pixel_color[i])) for i in range(3)])
-#             if distance > threshold:
-#                 mask[y][x] = 255
+def remove_average_color(image: Image, threshold: int) -> Image:
+    # Get the average color of the first 3x3 pixels in the top left corner
+    average_color = [0, 0, 0]
+    for x in range(3):
+        for y in range(3):
+            pixel_color = image.getpixel((x, y))
+            average_color[0] += pixel_color[0]
+            average_color[1] += pixel_color[1]
+            average_color[2] += pixel_color[2]
+    average_color = [int(c / 9) for c in average_color]
 
-#     # Apply the mask to remove the background color and make it transparent
- 
-#     # Convert the image to RGBA mode to support transparency
-#     # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGBA)
-#     image[:, :, 3] = mask
-#     return image
+    # Create a mask to remove the average color
+    mask = Image.new("L", image.size, 0)
+    for x in range(image.size[0]):
+        for y in range(image.size[1]):
+            pixel_color = image.getpixel((x, y))
+            distance = sum([abs(pixel_color[i] - average_color[i]) for i in range(3)])
+            if distance <= threshold:
+                mask.putpixel((x, y), 255)
+
+    # Convert the image to RGBA mode to support transparency
+    image = image.convert("RGBA")
+
+    # Apply the mask to remove the average color and make it transparent
+    image = Image.composite(image, Image.new("RGBA", image.size, (255, 255, 255, 0)), mask)
+
+    return image
 
 
 # def remove_background_processed(image, threshold):
@@ -145,25 +154,6 @@ def determine_best_k(image, max_k):
 #     image = Image.composite(image, Image.new("RGBA", image.size, (255, 255, 255, 0)), mask)
 #     return image
 
-# def remove_background_processed(image, threshold):
-#     Remove the background using rembg
-#     img = np.array(image)
-#     img = img[:, :, :3]
-#     img = Image.fromarray(img)
-#     input = io.BytesIO()
-#     img.save(input, format='PNG')
-#     input = input.getvalue()
-#     output = remove(input)
-#     output = Image.open(io.BytesIO(output)).convert('RGBA')
-    
-#     Apply threshold to alpha channel
-#     data = np.array(output)
-#     alpha = data[:, :, 3]
-#     alpha[alpha < threshold] = 0
-#     data[:, :, 3] = alpha
-#     output = Image.fromarray(data)
-    
-#     return output
 
 def remove_background_processed(image, threshold, alpha_matting=True, alpha_matting_foreground_threshold=240, alpha_matting_background_threshold=10):
     # Remove the background using rembg
@@ -185,19 +175,6 @@ def remove_background_processed(image, threshold, alpha_matting=True, alpha_matt
     
     return output
 
-
-# def remove_background_processed(image, threshold):
-#     # Remove the background using rembg
-#     img = np.array(image)
-#     img = img[:, :, :3]
-#     img = Image.fromarray(img)
-#     input = io.BytesIO()
-#     img.save(input, format='PNG')
-#     input = input.getvalue()
-#     output = remove(input)
-#     output = Image.open(io.BytesIO(output)).convert('RGBA')
-    
-#     return output
 
 def change_contrast(image: Image, contrast_value: float):
     enhancer = ImageEnhance.Contrast(image)
@@ -315,8 +292,8 @@ class Script(scripts.Script):
             sharpness_value = gr.Slider(minimum=0, maximum=2, step=0.1,
                                 label='sharpness value', value=1)       
         with gr.Row():
-            transparent = gr.Checkbox(label='Make background transparent', value=False)
-            threshold = gr.Slider(minimum=0, maximum=255, step=1,
+            transparentRembg = gr.Checkbox(label='Make background transparent rembg', value=False)
+            thresholdRembg = gr.Slider(minimum=0, maximum=255, step=1,
                                 label='Threshold for postbackground removal', value=0)
         with gr.Row():
             alpha_matting_foreground_threshold = gr.Slider(minimum=0, maximum=500, step=1,
@@ -324,6 +301,10 @@ class Script(scripts.Script):
         with gr.Row():    
             alpha_matting_background_threshold = gr.Slider(minimum=0, maximum=100, step=1,
                                 label='alpha_matting_background_threshold', value=0)
+        with gr.Row():
+            transparentColor = gr.Checkbox(label='Make background transparent with top left color', value=False)
+            thresholdColor = gr.Slider(minimum=0, maximum=255, step=1,
+                                label='Threshold for postbackground removal', value=0)
         with gr.Row():
             dither = gr.Dropdown(choices=["Bayer 2x2", "Bayer 4x4", "Bayer 8x8"],
                                  label="Matrix Size", value="Bayer 8x8", type="index")
@@ -340,9 +321,9 @@ class Script(scripts.Script):
         with gr.Row():
             palette = gr.Image(label="Palette image")
 
-        return [downscale, original, upscale, kcentroid, scale, transparent, threshold, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value,paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold] 
+        return [downscale, original, upscale, kcentroid, scale, transparentRembg, thresholdRembg, transparentColor, thresholdColor, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value,paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold] 
 
-    def run(self, p, downscale, original, upscale, kcentroid, scale, transparent, threshold, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value, paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold):
+    def run(self, p, downscale, original, upscale, kcentroid, scale, transparentRembg, thresholdRembg, transparentColor, thresholdColor, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value, paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold):
 
         if ditherStrength > 0:
             print(
@@ -415,8 +396,11 @@ class Script(scripts.Script):
             images.save_image(Image.fromarray(tempImg), p.outpath_samples, "palettized",
                             processed.seed + i, processed.prompt, opts.samples_format, info=processed.info, p=p)
 
-            if transparent:
-                transimage = remove_background_processed(processed.images[i], threshold, True, alpha_matting_foreground_threshold, alpha_matting_background_threshold)
+            if transparentRembg | transparentColor:
+                if transparentRembg:
+                    transimage = remove_background_processed(processed.images[i], thresholdRembg, True, alpha_matting_foreground_threshold, alpha_matting_background_threshold)
+                if transparentColor:
+                    transimage = remove_average_color(processed.images[i], thresholdColor)
                 if contrast:
                     processed.images[i] = change_contrast(processed.images[i], contrast_value)
                     transimage = change_contrast(transimage, contrast_value)
@@ -458,7 +442,7 @@ class Script(scripts.Script):
         if original:
             processed.images.extend(originalImgs)
 
-        if transparent:
+        if transparentRembg | transparentColor:
              processed.images.extend(transparent_images)
 
         return processed
