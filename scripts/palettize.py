@@ -11,6 +11,7 @@ import colorsys
 from io import BytesIO
 from itertools import product
 
+
 from modules import images
 from modules.processing import process_images
 from modules.ui import create_refresh_button
@@ -115,6 +116,25 @@ def remove_average_color(image: Image, threshold: int) -> Image:
     image = Image.composite(image, Image.new("RGBA", image.size, (255, 255, 255, 0)), mask)
 
     return image
+
+
+def remove_shadow(image_path, lower_val, upper_val):
+    # Load the image
+    image = cv2.imread(image_path)
+
+    # Convert the image to HSV
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    # Threshold the HSV image to get only the colors in defined range
+    mask = cv2.inRange(hsv, lower_val, upper_val)
+
+    # Bitwise-AND mask and original image
+    res = cv2.bitwise_and(image,image, mask= mask)
+
+    # Convert the resulting image to RGBA
+    res_rgba = cv2.cvtColor(res, cv2.COLOR_BGR2RGBA)
+
+    return res_rgba
 
 
 
@@ -307,6 +327,12 @@ class Script(scripts.Script):
             thresholdColor = gr.Slider(minimum=0, maximum=255, step=1,
                                 label='Threshold for postbackground removal', value=80)
         with gr.Row():
+            removeShadows = gr.Checkbox(label='remove Shadows', value=False)
+            shadowsLower_val = [gr.Slider(minimum=0, maximum=255, step=1,
+                                label='lower_val', value=80) for _ in range(3)],
+            shadowsUpper_val = [gr.Slider(minimum=0, maximum=255, step=1,
+                                label='lower_val', value=80) for _ in range(3)],
+        with gr.Row():
             dither = gr.Dropdown(choices=["Bayer 2x2", "Bayer 4x4", "Bayer 8x8"],
                                  label="Matrix Size", value="Bayer 8x8", type="index")
             ditherStrength = gr.Slider(
@@ -322,9 +348,9 @@ class Script(scripts.Script):
         with gr.Row():
             palette = gr.Image(label="Palette image")
 
-        return [downscale, original, upscale, kcentroid, scale, transparentRembg, thresholdRembg, transparentColor, thresholdColor, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value,paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold] 
+        return [downscale, original, upscale, kcentroid, scale, transparentRembg, thresholdRembg, transparentColor, thresholdColor, removeShadows, shadowsLower_val, shadowsUpper_val, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value,paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold] 
 
-    def run(self, p, downscale, original, upscale, kcentroid, scale, transparentRembg, thresholdRembg, transparentColor, thresholdColor, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value, paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold):
+    def run(self, p, downscale, original, upscale, kcentroid, scale, transparentRembg, thresholdRembg, transparentColor, thresholdColor, removeShadows, shadowsLower_val, shadowsUpper_val, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value, paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold):
 
         if ditherStrength > 0:
             print(
@@ -402,6 +428,8 @@ class Script(scripts.Script):
                     transimage = remove_background_processed(processed.images[i], thresholdRembg, True, alpha_matting_foreground_threshold, alpha_matting_background_threshold)
                 if transparentColor:
                     transimage = remove_average_color(processed.images[i], thresholdColor)
+                if removeShadows:
+                    transimage = remove_shadow(processed.images[i], shadowsLower_val, shadowsUpper_val)
                 if contrast:
                     processed.images[i] = change_contrast(processed.images[i], contrast_value)
                     transimage = change_contrast(transimage, contrast_value)
@@ -414,6 +442,7 @@ class Script(scripts.Script):
                 if sharpness:
                     processed.images[i] = change_sharpness(processed.images[i], sharpness_value)
                     transimage = change_sharpness(transimage, sharpness_value)
+ 
 
                 images.save_image(transimage, p.outpath_samples, "palettized_transparent", processed.seed + i, processed.prompt, opts.samples_format, info=processed.info, p=p)
                 transparent_images.append(transimage) 
