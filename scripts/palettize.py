@@ -118,25 +118,109 @@ def remove_average_color(image: Image, threshold: int) -> Image:
     return image
 
 
-def remove_shadow(image_path, lower_val, upper_val):
-    # Load the image
-    image = cv2.imread(image_path)
+# def remove_shadow(image: Image, lower_color, upper_color):
+#     # Check if the image is a numpy array
+#     if not isinstance(image, np.ndarray):
+#         # Convert the image to a numpy array
+#         image = np.array(image)
 
-    # Convert the image to HSV
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+#     # Convert the image to HSV color space
+#     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-    # Threshold the HSV image to get only the colors in defined range
-    mask = cv2.inRange(hsv, lower_val, upper_val)
+#     # Define range of color in HSV
+#     lower_color = np.array(lower_color)
+#     upper_color = np.array(upper_color)
 
-    # Bitwise-AND mask and original image
-    res = cv2.bitwise_and(image,image, mask= mask)
+#     # Threshold the HSV image to get only the specified colors
+#     mask = cv2.inRange(hsv, lower_color, upper_color)
 
-    # Convert the resulting image to RGBA
-    res_rgba = cv2.cvtColor(res, cv2.COLOR_BGR2RGBA)
+#     # Get the number of pixels that have a color within the specified range
+#     num_pixels = np.sum(mask)
 
-    return res_rgba
+#     # Print the number of pixels
+#     print(f"Number of pixels with color within range: {num_pixels}")
+
+#     # Invert the mask
+#     mask = cv2.bitwise_not(mask)
+
+#     # Bitwise-AND mask and original image
+#     res = cv2.bitwise_and(image, image, mask=mask)
+
+#     # Convert numpy array to PIL Image
+#     resImage = Image.fromarray(res)
+
+#     return resImage
 
 
+def remove_color_range(image: Image, color1: tuple, color2: tuple) -> Image:
+    # Create a mask to remove the color range
+    mask = Image.new("L", image.size, 255) # Change initial value of mask to 255
+    for x in range(image.size[0]):
+        for y in range(image.size[1]):
+            pixel_color = image.getpixel((x, y))
+            if color1[0] <= pixel_color[0] <= color2[0] and color1[1] <= pixel_color[1] <= color2[1] and color1[2] <= pixel_color[2] <= color2[2]:
+                mask.putpixel((x, y), 0) # Change value of mask to 0
+
+    # Convert the image to RGBA mode to support transparency
+    image = image.convert("RGBA")
+
+    # Apply the mask to remove the color range and make it transparent
+    image = Image.composite(image, Image.new("RGBA", image.size, (255, 255, 255, 0)), mask)
+
+    return image
+
+def remove_color_range(image: Image, color1: tuple, color2: tuple) -> Image:
+    # Create a mask to remove the color range
+    mask = Image.new("L", image.size, 255) # Change initial value of mask to 255
+    for x in range(image.size[0]):
+        for y in range(image.size[1]):
+            pixel_color = image.getpixel((x, y))
+            if color1[0] <= pixel_color[0] <= color2[0] and color1[1] <= pixel_color[1] <= color2[1] and color1[2] <= pixel_color[2] <= color2[2]:
+                mask.putpixel((x, y), 0) # Change value of mask to 0
+
+    # Convert the image to RGBA mode to support transparency
+    image = image.convert("RGBA")
+
+    # Apply the mask to remove the color range and make it transparent
+    image = Image.composite(image, Image.new("RGBA", image.size, (255, 255, 255, 0)), mask)
+
+    return image
+
+
+def remove_shadow(image, color1, color2):
+    # Convert the input image to RGB mode
+    image = image.convert('RGB')
+    
+    # Get the dimensions of the image
+    width, height = image.size
+
+    # Create a mask to remove the average color
+    mask = Image.new("L", image.size, 255) # Change initial value of mask to 255
+    # Loop through each pixel in the image
+    for x in range(width):
+        for y in range(height):
+            # Get the RGB values of the pixel
+            r, g, b = image.getpixel((x, y))
+            
+            # Check if the pixel is between the two colors
+            if not (color1[0] <= r <= color2[0] and color1[1] <= g <= color2[1] and color1[2] <= b <= color2[2]):
+                # If not, set the pixel to black
+                mask.putpixel((x, y), 0) # Change value of mask to 0
+
+    # Get the number of pixels that have a color within the specified range
+    num_pixels = np.sum(mask)
+
+    # Print the number of pixels
+    print(f"Number of pixels with color within range: {num_pixels}")
+
+    # Convert the image to RGBA mode to support transparency
+    image = image.convert("RGBA")
+
+    # Apply the mask to remove the average color and make it transparent
+    image = Image.composite(image, Image.new("RGBA", image.size, (255, 255, 255, 0)), mask)
+
+    # Return the modified image
+    return image
 
 # def remove_background_processed(image, threshold):
 #     # Convert the image to a NumPy array
@@ -273,6 +357,10 @@ def palettize(input, colors, palImg, dithering, strength):
     result = cv2.cvtColor(np.asarray(img_indexed), cv2.COLOR_RGB2BGR)
     return result
 
+def hex_to_rgb(hex_color):
+    hex_color = hex_color.lstrip('#')
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
 
 class Script(scripts.Script):
     def title(self):
@@ -311,27 +399,26 @@ class Script(scripts.Script):
         with gr.Row():
             sharpness = gr.Checkbox(label='Sharpness of the image', value=False)
             sharpness_value = gr.Slider(minimum=0, maximum=2, step=0.1,
-                                label='sharpness value', value=1)       
-        with gr.Row():
-            transparentRembg = gr.Checkbox(label='Make background transparent rembg', value=False)
-            thresholdRembg = gr.Slider(minimum=0, maximum=255, step=1,
-                                label='Threshold for postbackground removal', value=0)
-        with gr.Row():
-            alpha_matting_foreground_threshold = gr.Slider(minimum=0, maximum=500, step=1,
-                                label='alpha_matting_foreground_threshold', value=0)
-        with gr.Row():    
-            alpha_matting_background_threshold = gr.Slider(minimum=0, maximum=100, step=1,
-                                label='alpha_matting_background_threshold', value=0)
+                                label='sharpness value', value=1)     
         with gr.Row():
             transparentColor = gr.Checkbox(label='Make background transparent with top left color', value=False)
             thresholdColor = gr.Slider(minimum=0, maximum=255, step=1,
-                                label='Threshold for postbackground removal', value=80)
+                                label='Threshold for postbackground removal', value=30)  
+        with gr.Row():
+            transparentRembg = gr.Checkbox(label='Make background transparent rembg', value=False)
+            thresholdRembg = gr.Slider(minimum=0, maximum=255, step=1,
+                                label='Threshold', value=0)
+        # with gr.Row():
+            alpha_matting_foreground_threshold = gr.Slider(minimum=0, maximum=500, step=1,
+                                label='alpha_matting_foreground_threshold', value=0)
+        # with gr.Row():    
+            alpha_matting_background_threshold = gr.Slider(minimum=0, maximum=100, step=1,
+                                label='alpha_matting_background_threshold', value=0)
+
         with gr.Row():
             removeShadows = gr.Checkbox(label='remove Shadows', value=False)
-            shadowsLower_val = [gr.Slider(minimum=0, maximum=255, step=1,
-                                label='lower_val', value=80) for _ in range(3)],
-            shadowsUpper_val = [gr.Slider(minimum=0, maximum=255, step=1,
-                                label='lower_val', value=80) for _ in range(3)],
+            shadowsLower_val = gr.ColorPicker(initial_color="red", label='shadowsLower_val (darker)', value="#828282")
+            shadowsUpper_val = gr.ColorPicker(initial_color="red", label='shadowsUpper_val (lighter)', value="#d2d2d2")
         with gr.Row():
             dither = gr.Dropdown(choices=["Bayer 2x2", "Bayer 4x4", "Bayer 8x8"],
                                  label="Matrix Size", value="Bayer 8x8", type="index")
@@ -423,13 +510,14 @@ class Script(scripts.Script):
             images.save_image(Image.fromarray(tempImg), p.outpath_samples, "palettized",
                             processed.seed + i, processed.prompt, opts.samples_format, info=processed.info, p=p)
 
-            if transparentRembg | transparentColor:
-                if transparentRembg:
-                    transimage = remove_background_processed(processed.images[i], thresholdRembg, True, alpha_matting_foreground_threshold, alpha_matting_background_threshold)
+            if transparentRembg | transparentColor | removeShadows | contrast | brightness | color | sharpness:
+                transimage = processed.images[i]
                 if transparentColor:
-                    transimage = remove_average_color(processed.images[i], thresholdColor)
+                    transimage = remove_average_color(transimage, thresholdColor)
+                if transparentRembg:
+                    transimage = remove_background_processed(transimage, thresholdRembg, True, alpha_matting_foreground_threshold, alpha_matting_background_threshold)
                 if removeShadows:
-                    transimage = remove_shadow(processed.images[i], shadowsLower_val, shadowsUpper_val)
+                    transimage = remove_color_range(transimage, hex_to_rgb(shadowsLower_val), hex_to_rgb(shadowsUpper_val))
                 if contrast:
                     processed.images[i] = change_contrast(processed.images[i], contrast_value)
                     transimage = change_contrast(transimage, contrast_value)
@@ -472,7 +560,7 @@ class Script(scripts.Script):
         if original:
             processed.images.extend(originalImgs)
 
-        if transparentRembg | transparentColor:
+        if transparentRembg | transparentColor | removeShadows:
              processed.images.extend(transparent_images)
 
         return processed
