@@ -493,7 +493,7 @@ class Script(scripts.Script):
         with gr.Row():
             transparentContour = gr.Checkbox(label='Remove background with contour', value=False)
             thresholdContour = gr.Slider(minimum=0, maximum=255, step=1,
-                                label='Threshold', value=100)
+                                label='Threshold Contour', value=100)
         with gr.Row():
             removeShadows = gr.Checkbox(label='remove Shadows', value=False)
             shadowsLower_val = gr.ColorPicker(initial_color="red", label='shadowsLower_val (darker)', value="#828282")
