@@ -263,7 +263,7 @@ def make_background_transparent_contour(image, threshold):
 
     otsu_threshold = otsu_threshold - threshold
 
-    print("Obtained threshold: ", otsu_threshold)
+    # print("Obtained threshold: ", otsu_threshold)
 
     otsu_threshold, thresh = cv2.threshold(gray, otsu_threshold, 255, cv2.THRESH_BINARY_INV)
     
@@ -500,7 +500,7 @@ class Script(scripts.Script):
         with gr.Row():
             transparentContour = gr.Checkbox(label='Remove background with contour', value=False)
             thresholdContour = gr.Slider(minimum=0, maximum=255, step=1,
-                                label='Threshold Contour', value=65)
+                                label='Threshold Contour', value=70)
         with gr.Row():
             removeShadows = gr.Checkbox(label='remove Shadows', value=False)
             shadowsLower_val = gr.ColorPicker(initial_color="red", label='shadowsLower_val (darker)', value="#828282")
