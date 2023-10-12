@@ -255,15 +255,17 @@ def make_background_transparent_contour(image, threshold):
     open_cv_image = np.array(image) 
     img = open_cv_image[:, :, ::-1].copy() 
 
+    # Get the color of the top left pixel
+    top_left_color = img[0, 0]
+
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # blurred = cv2.GaussianBlur(gray, (3, 3), 0)
 
     # Threshold the image
     otsu_threshold, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
     otsu_threshold = otsu_threshold - threshold
 
-    # print("Obtained threshold: ", otsu_threshold)
+    print("Obtained threshold: ", otsu_threshold)
 
     otsu_threshold, thresh = cv2.threshold(gray, otsu_threshold, 255, cv2.THRESH_BINARY_INV)
     
@@ -283,6 +285,9 @@ def make_background_transparent_contour(image, threshold):
 
     # Draw the contours on the mask with white
     cv2.drawContours(mask, contours, -1, (255), thickness=cv2.FILLED)
+
+    # Remove the specified color range from the mask
+    mask[np.logical_and(np.all(img >= top_left_color - [threshold,threshold,threshold], axis=2), np.all(img <= [255,255,255], axis=2))] = 0
 
     # Reduce the outer shape of the mask by two pixels
     mask = cv2.erode(mask, kernel, iterations=2)
