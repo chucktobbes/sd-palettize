@@ -250,7 +250,7 @@ def remove_shadow(image, color1, color2):
     # Return the modified image
     return image
 
-def make_background_transparent_contour(image, threshold):
+def make_background_transparent_contour(image, threshold, transparentContourColor, thresholdContourRemove):
     # Convert PIL Image to OpenCV format
     open_cv_image = np.array(image) 
     img = open_cv_image[:, :, ::-1].copy() 
@@ -263,13 +263,19 @@ def make_background_transparent_contour(image, threshold):
     # Threshold the image
     otsu_threshold, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-    otsu_threshold = otsu_threshold - threshold
+    if thresholdContourRemove:
+        threshold = threshold *-1
+
+    otsu_threshold = otsu_threshold - otsu_threshold / 3.2 + threshold
 
     print("Obtained threshold: ", otsu_threshold)
 
     otsu_threshold, thresh = cv2.threshold(gray, otsu_threshold, 255, cv2.THRESH_BINARY_INV)
-    
-    edged = cv2.Canny(thresh, 10, 255)
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (21,21))
+    closed_img = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+
+    edged = cv2.Canny(closed_img, 10, 255)
 
     # define a (3, 3) structuring element
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
@@ -286,8 +292,9 @@ def make_background_transparent_contour(image, threshold):
     # Draw the contours on the mask with white
     cv2.drawContours(mask, contours, -1, (255), thickness=cv2.FILLED)
 
-    # Remove the specified color range from the mask
-    mask[np.logical_and(np.all(img >= top_left_color - [threshold,threshold,threshold], axis=2), np.all(img <= [255,255,255], axis=2))] = 0
+    if transparentContourColor:
+        # Remove the specified color range from the mask
+        mask[np.logical_and(np.all(img >= top_left_color - [otsu_threshold/2,otsu_threshold/2,otsu_threshold/2], axis=2), np.all(img <= [255,255,255], axis=2))] = 0
 
     # Reduce the outer shape of the mask by two pixels
     mask = cv2.erode(mask, kernel, iterations=2)
@@ -308,7 +315,6 @@ def make_background_transparent_contour(image, threshold):
     result = Image.fromarray(img_rgba)
 
     return result
-
 
 # def remove_background_processed(image, threshold):
 #     # Convert the image to a NumPy array
@@ -504,8 +510,10 @@ class Script(scripts.Script):
                                 label='alpha_matting_background_threshold', value=0)
         with gr.Row():
             transparentContour = gr.Checkbox(label='Remove background with contour', value=False)
+            transparentContourColor = gr.Checkbox(label='Remove Color', value=False)
+            thresholdContourRemove = gr.Checkbox(label='Remove Threshold', value=False)
             thresholdContour = gr.Slider(minimum=0, maximum=255, step=1,
-                                label='Threshold Contour', value=70)
+                                label='Threshold Contour', value=0)
         with gr.Row():
             removeShadows = gr.Checkbox(label='remove Shadows', value=False)
             shadowsLower_val = gr.ColorPicker(initial_color="red", label='shadowsLower_val (darker)', value="#828282")
@@ -526,9 +534,9 @@ class Script(scripts.Script):
         with gr.Row():
             palette = gr.Image(label="Palette image")
 
-        return [downscale, original, upscale, kcentroid, scale, transparentRembg, thresholdRembg, transparentContour, thresholdContour, transparentColor, thresholdColor, removeShadows, shadowsLower_val, shadowsUpper_val, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value,paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold] 
+        return [downscale, original, upscale, kcentroid, scale, transparentRembg, thresholdRembg, transparentContour, transparentContourColor, thresholdContourRemove, thresholdContour, transparentColor, thresholdColor, removeShadows, shadowsLower_val, shadowsUpper_val, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value,paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold] 
 
-    def run(self, p, downscale, original, upscale, kcentroid, scale, transparentRembg, thresholdRembg, transparentContour, thresholdContour, transparentColor, thresholdColor, removeShadows, shadowsLower_val, shadowsUpper_val, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value, paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold):
+    def run(self, p, downscale, original, upscale, kcentroid, scale, transparentRembg, thresholdRembg, transparentContour, thresholdContour, transparentContourColor, thresholdContourRemove, transparentColor, thresholdColor, removeShadows, shadowsLower_val, shadowsUpper_val, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value, paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold):
 
         if ditherStrength > 0:
             print(
@@ -608,7 +616,7 @@ class Script(scripts.Script):
                 if transparentRembg:
                     transimage = remove_background_processed(transimage, thresholdRembg, True, alpha_matting_foreground_threshold, alpha_matting_background_threshold)
                 if transparentContour:
-                    transimage = make_background_transparent_contour(transimage, thresholdContour)
+                    transimage = make_background_transparent_contour(transimage, thresholdContour, transparentContourColor, thresholdContourRemove)
                 if removeShadows:
                     transimage = remove_color_range(transimage, hex_to_rgb(shadowsLower_val), hex_to_rgb(shadowsUpper_val))
                 if contrast:
