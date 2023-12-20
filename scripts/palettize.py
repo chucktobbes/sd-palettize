@@ -536,7 +536,7 @@ class Script(scripts.Script):
 
         return [downscale, original, upscale, kcentroid, scale, transparentRembg, thresholdRembg, transparentContour, transparentContourColor, thresholdContourRemove, thresholdContour, transparentColor, thresholdColor, removeShadows, shadowsLower_val, shadowsUpper_val, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value,paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold] 
 
-    def run(self, p, downscale, original, upscale, kcentroid, scale, transparentRembg, thresholdRembg, transparentContour, thresholdContour, transparentContourColor, thresholdContourRemove, transparentColor, thresholdColor, removeShadows, shadowsLower_val, shadowsUpper_val, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value, paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold):
+    def run(self, p, downscale, original, upscale, kcentroid, scale, transparentRembg, thresholdRembg, transparentContour, transparentContourColor, thresholdContourRemove, thresholdContour, transparentColor, thresholdColor, removeShadows, shadowsLower_val, shadowsUpper_val, contrast, contrast_value, brightness, brightness_value, color, color_value, sharpness, sharpness_value,paletteDropdown, paletteURL, palette, limit, clusters, dither, ditherStrength, alpha_matting_foreground_threshold, alpha_matting_background_threshold):
 
         if ditherStrength > 0:
             print(
